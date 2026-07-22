@@ -114,6 +114,27 @@ controller_projects:
 
 By default, this option is **`false`**.
 
+### Option: `aap_configuration_dispatch_absent_order`
+
+When `true` (the default), the dispatch role handles creation and deletion in dependency-safe order:
+
+1. **Absent pass** — roles run in **reverse** dependency order, each receiving only objects whose effective state is `absent`.
+2. **Present pass** — roles run in **creation** order, each receiving only objects whose effective state is not `absent`.
+
+Effective state per object is `item.state`, falling back to `hub_state` / `ah_state` / `platform_state` (default `present`).
+
+This covers three common cases:
+
+| Case | Behavior |
+|------|----------|
+| All objects `present` | Single creation-order pass (no absent objects detected) |
+| Mixed `present` / `absent` | Deletes dependents first (e.g. job templates before projects), then creates/updates the rest |
+| All objects `absent` (or `platform_state: absent`) | Deletes everything in reverse dependency order |
+
+Operational roles that do not delete objects (sync, index, publish, launch, inventory source update) set `dispatch_on_absent: false` and are skipped during the absent pass.
+
+Set `aap_configuration_dispatch_absent_order: false` to restore the previous single-pass behavior (creation order only, including absent items).
+
 ```yaml
 aap_configuration_dispatcher_roles: >
   {{ (gateway_configuration_dispatcher_roles

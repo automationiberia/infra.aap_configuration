@@ -1,0 +1,14 @@
+---
+# Run all roles in __dispatch_roles_list for the current __dispatch_pass.
+# Expected vars:
+#   __dispatch_pass: absent | present | all
+#   __dispatch_roles_list: list of dispatcher role entries
+#   __dispatch_default_state: effective default state (present/absent)
+- name: "Dispatch | Process roles for pass {{ __dispatch_pass }}"
+  ansible.builtin.include_tasks: run_single_dispatcher_role.yml
+  loop: "{{ __dispatch_roles_list }}"
+  loop_control:
+    loop_var: __role
+    label: "{{ __role.role }} ({{ __dispatch_pass }})"
+  tags: always
+...

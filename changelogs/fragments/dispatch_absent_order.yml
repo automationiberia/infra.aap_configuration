@@ -1,0 +1,4 @@
+bugfixes:
+  - |
+    dispatch - Remove objects with ``state: absent`` in reverse dependency order before creating or updating ``present`` objects, so dependent resources are deleted safely (mixed present/absent lists and full teardown).
+...

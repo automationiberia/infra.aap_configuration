@@ -1,6 +1,10 @@
 ---
 dispatch_include_wildcard_vars: false
 
+# When true, objects with state absent are removed in reverse dependency order
+# before present objects are created/updated in creation order.
+aap_configuration_dispatch_absent_order: true
+
 gateway_configuration_dispatcher_roles:
   - role: gateway_authenticators
     var: gateway_authenticators
@@ -108,6 +112,7 @@ hub_configuration_dispatcher_roles:
     tags:
       - reposync
       - hub_ee_repository_sync
+    dispatch_on_absent: false
   - role: hub_ee_image
     var: hub_ee_images
     tags:
@@ -118,11 +123,13 @@ hub_configuration_dispatcher_roles:
     tags:
       - ee_indices
       - hub_ee_registry_index
+    dispatch_on_absent: false
   - role: hub_ee_registry_sync
     var: hub_ee_registries
     tags:
       - regsync
       - hub_ee_registry_sync
+    dispatch_on_absent: false
   - role: hub_collection_remote
     var: hub_collection_remotes
     tags:
@@ -138,6 +145,7 @@ hub_configuration_dispatcher_roles:
     tags:
       - collectionsrepsync
       - hub_collection_repository_sync
+    dispatch_on_absent: false
   - role: hub_collection
     var: hub_collections
     tags:
@@ -150,11 +158,13 @@ hub_configuration_dispatcher_roles_publish:
     tags:
       - publish
       - hub_publish
+    dispatch_on_absent: false
   - role: hub_publish
     var: hub_custom_collections
     tags:
       - publish
       - hub_publish
+    dispatch_on_absent: false
 
 hub_configuration_dispatcher_roles_include_publish: false
 
@@ -242,6 +252,7 @@ controller_configuration_dispatcher_roles:
       - inventories
       - inventory_sources
       - controller_inventory_sources
+    dispatch_on_absent: false
   - role: controller_hosts
     var: controller_hosts
     tags:
@@ -285,11 +296,13 @@ controller_configuration_dispatcher_roles:
     tags:
       - job_launch
       - controller_job_launch
+    dispatch_on_absent: false
   - role: controller_workflow_launch
     var: controller_workflow_launch_jobs
     tags:
       - workflow_launch
       - controller_workflow_launch
+    dispatch_on_absent: false
 
 eda_configuration_dispatcher_roles:
   - role: eda_credential_types

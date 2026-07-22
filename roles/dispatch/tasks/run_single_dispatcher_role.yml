@@ -1,0 +1,110 @@
+---
+# Run a single dispatcher role entry with an optional state filter.
+# Expected vars from parent:
+#   __role: dispatcher role entry
+#   __dispatch_pass: absent | present | all
+#   __dispatch_default_state: effective default state (present/absent)
+- name: "Dispatch | Prepare and run {{ __role.role }} ({{ __dispatch_pass }})"
+  when:
+    - query('ansible.builtin.varnames', '^' ~ __role.var ~ '$') | length > 0
+    - __dispatch_pass != 'absent' or (__role.dispatch_on_absent | default(true))
+  vars:
+    __dispatch_source: "{{ lookup('ansible.builtin.vars', __role.var) }}"
+    __dispatch_filtered: >-
+      {{
+        (
+          __dispatch_source
+          if __dispatch_pass == 'all'
+          else (
+            (
+              __dispatch_source
+              if (
+                (__dispatch_pass == 'absent' and __dispatch_default_state == 'absent')
+                or (__dispatch_pass == 'present' and __dispatch_default_state != 'absent')
+              )
+              else {}
+            )
+            if __dispatch_source is mapping
+            else (
+              (
+                (
+                  __dispatch_source
+                  | selectattr('state', 'defined')
+                  | selectattr('state', 'equalto', 'absent')
+                  | list
+                )
+                + (
+                  __dispatch_source | rejectattr('state', 'defined') | list
+                  if __dispatch_default_state == 'absent'
+                  else []
+                )
+              )
+              if __dispatch_pass == 'absent'
+              else (
+                (
+                  __dispatch_source
+                  | selectattr('state', 'defined')
+                  | rejectattr('state', 'equalto', 'absent')
+                  | list
+                )
+                + (
+                  __dispatch_source | rejectattr('state', 'defined') | list
+                  if __dispatch_default_state != 'absent'
+                  else []
+                )
+              )
+            )
+            if (__dispatch_source is sequence and __dispatch_source is not string)
+            else (
+              __dispatch_source
+              if (
+                (__dispatch_pass == 'absent' and __dispatch_default_state == 'absent')
+                or (__dispatch_pass == 'present' and __dispatch_default_state != 'absent')
+              )
+              else []
+            )
+          )
+        )
+      }}
+  block:
+    - name: "Dispatch | Include role {{ __role.role }} without filtering"
+      when: __dispatch_pass == 'all'
+      ansible.builtin.include_role:
+        name: "{{ __role.role }}"
+        apply:
+          tags: "{{ __role.tags }}"
+      vars:
+        assign_galaxy_credentials_to_org: "{{ __role.assign_galaxy_credentials_to_org | default(false) }}"
+        assign_default_ee_to_org: "{{ __role.assign_default_ee_to_org | default(false) }}"
+        assign_notification_templates_to_org: "{{ __role.assign_notification_templates_to_org | default(false) }}"
+        assign_instance_groups_to_org: "{{ __role.assign_instance_groups_to_org | default(false) }}"
+
+    - name: "Dispatch | Include role {{ __role.role }} with {{ __dispatch_pass }} filter"
+      when:
+        - __dispatch_pass != 'all'
+        - __dispatch_filtered | length > 0
+      block:
+        - name: "Dispatch | Backup {{ __role.var }} before {{ __dispatch_pass }} filter"
+          ansible.builtin.set_fact:
+            __dispatch_var_backup: "{{ __dispatch_source }}"
+
+        - name: "Dispatch | Apply {{ __dispatch_pass }} filter to {{ __role.var }}"
+          ansible.builtin.set_fact:
+            "{{ __role.var }}": "{{ __dispatch_filtered }}"
+
+        - name: "Dispatch | Run {{ __role.role }}"
+          ansible.builtin.include_role:
+            name: "{{ __role.role }}"
+            apply:
+              tags: "{{ __role.tags }}"
+          vars:
+            assign_galaxy_credentials_to_org: "{{ __role.assign_galaxy_credentials_to_org | default(false) }}"
+            assign_default_ee_to_org: "{{ __role.assign_default_ee_to_org | default(false) }}"
+            assign_notification_templates_to_org: "{{ __role.assign_notification_templates_to_org | default(false) }}"
+            assign_instance_groups_to_org: "{{ __role.assign_instance_groups_to_org | default(false) }}"
+      always:
+        - name: "Dispatch | Restore {{ __role.var }} after {{ __dispatch_pass }} filter"
+          when: __dispatch_var_backup is defined
+          ansible.builtin.set_fact:
+            "{{ __role.var }}": "{{ __dispatch_var_backup }}"
+...

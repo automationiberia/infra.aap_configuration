@@ -4,21 +4,79 @@
   when: dispatch_include_wildcard_vars
   tags: always
 
-- name: "Run the following infra.aap_configuration roles: {{ aap_configuration_dispatcher_roles | map(attribute='role') | join(', ') }}"
-  ansible.builtin.include_role:
-    name: "{{ __role.role }}"
-    apply:
-      tags: "{{ __role.tags }}"
-  when: vars[__role.var] is defined
+- name: Dispatch | Set effective default state
+  ansible.builtin.set_fact:
+    __dispatch_default_state: "{{ hub_state | default(ah_state | default(platform_state | default('present'))) }}"
   tags: always
-  loop: "{{ aap_configuration_dispatcher_roles }}"
-  loop_control:
-    loop_var: __role
+
+- name: Dispatch | Detect whether any configured objects are absent
+  when: aap_configuration_dispatch_absent_order | bool
+  tags: always
+  block:
+    - name: Dispatch | Initialize absent detection from default state
+      ansible.builtin.set_fact:
+        __dispatch_has_absent: "{{ __dispatch_default_state == 'absent' }}"
+
+    - name: Dispatch | Scan role vars for item-level absent state
+      when:
+        - not (__dispatch_has_absent | bool)
+        - __dispatch_var_defined | bool
+        - __dispatch_items is sequence
+        - __dispatch_items is not string
+        - __dispatch_items is not mapping
+      ansible.builtin.set_fact:
+        __dispatch_has_absent: >-
+          {{
+            (__dispatch_has_absent | bool)
+            or (
+              (__dispatch_items
+               | selectattr('state', 'defined')
+               | selectattr('state', 'equalto', 'absent')
+               | list
+               | length) > 0
+            )
+          }}
+      loop: "{{ aap_configuration_dispatcher_roles | map(attribute='var') | unique | list }}"
+      loop_control:
+        loop_var: __dispatch_var_name
+        label: "Scan {{ __dispatch_var_name }} for absent items"
+      vars:
+        __dispatch_var_defined: "{{ query('ansible.builtin.varnames', '^' ~ __dispatch_var_name ~ '$') | length > 0 }}"
+        __dispatch_items: "{{ lookup('ansible.builtin.vars', __dispatch_var_name, default=[]) }}"
+
+- name: Dispatch | Default has_absent when absent-order handling is disabled
+  when: not (aap_configuration_dispatch_absent_order | bool)
+  ansible.builtin.set_fact:
+    __dispatch_has_absent: false
+  tags: always
+
+- name: Dispatch | Remove objects in reverse dependency order
+  when:
+    - aap_configuration_dispatch_absent_order | bool
+    - __dispatch_has_absent | bool
+  ansible.builtin.include_tasks: run_dispatcher_roles.yml
   vars:
-    assign_galaxy_credentials_to_org: "{{ __role.assign_galaxy_credentials_to_org | default(false) }}"
-    assign_default_ee_to_org: "{{ __role.assign_default_ee_to_org | default(false) }}"
-    assign_notification_templates_to_org: "{{ __role.assign_notification_templates_to_org | default(false) }}"
-    assign_instance_groups_to_org: "{{ __role.assign_instance_groups_to_org | default(false) }}"
+    __dispatch_pass: absent
+    __dispatch_roles_list: "{{ aap_configuration_dispatcher_roles | reverse | list }}"
+  tags: always
+
+- name: Dispatch | Create or update objects in dependency order
+  when:
+    - aap_configuration_dispatch_absent_order | bool
+    - __dispatch_has_absent | bool
+  ansible.builtin.include_tasks: run_dispatcher_roles.yml
+  vars:
+    __dispatch_pass: present
+    __dispatch_roles_list: "{{ aap_configuration_dispatcher_roles }}"
+  tags: always
+
+- name: "Dispatch | Run roles in creation order (no absent objects)"
+  when: not ((aap_configuration_dispatch_absent_order | bool) and (__dispatch_has_absent | bool))
+  ansible.builtin.include_tasks: run_dispatcher_roles.yml
+  vars:
+    __dispatch_pass: all
+    __dispatch_roles_list: "{{ aap_configuration_dispatcher_roles }}"
+  tags: always
 
 - name: Display errors and fail
   when:

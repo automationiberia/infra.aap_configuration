@@ -111,6 +111,7 @@ argument_specs:
             tags:
               - reposync
               - hub_ee_repository_sync
+            dispatch_on_absent: false
           - role: hub_ee_image
             var: hub_ee_images
             tags:
@@ -124,11 +125,13 @@ argument_specs:
             tags:
               - ee_indices
               - hub_ee_registry_index
+            dispatch_on_absent: false
           - role: hub_ee_registry_sync
             var: hub_ee_registries
             tags:
               - regsync
               - hub_ee_registry_sync
+            dispatch_on_absent: false
           - role: hub_collection_remote
             var: hub_collection_remotes
             tags:
@@ -144,6 +147,7 @@ argument_specs:
             tags:
               - collectionsrepsync
               - hub_collection_repository_sync
+            dispatch_on_absent: false
           - role: hub_collection
             var: hub_collections
             tags:
@@ -234,6 +238,7 @@ argument_specs:
               - inventories
               - inventory_sources
               - controller_inventory_sources
+            dispatch_on_absent: false
           - role: controller_hosts
             var: controller_hosts
             tags:
@@ -277,11 +282,13 @@ argument_specs:
             tags:
               - job_launch
               - controller_job_launch
+            dispatch_on_absent: false
           - role: controller_workflow_launch
             var: controller_workflow_launch_jobs
             tags:
               - workflow_launch
               - controller_workflow_launch
+            dispatch_on_absent: false
       eda_configuration_dispatcher_roles:
         default:
           - role: eda_credential_types
@@ -338,6 +345,11 @@ argument_specs:
         description: This variable enables secure logging across all roles as a default.
 
       # Generic across all roles
+      aap_configuration_dispatch_absent_order:
+        default: true
+        required: false
+        type: bool
+        description: When true, objects with state absent are removed in reverse dependency order before present objects are created or updated in creation order. Set to false to use a single creation-order pass for all objects.
       platform_state:
         default: present
         required: false
